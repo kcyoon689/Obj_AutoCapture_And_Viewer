@@ -1,10 +1,11 @@
-import glfw
-import OpenGL.GL as gl
-import OpenGL.GLU as glu
-import numpy as np
-import ctypes
+import sys
 import time
 import datetime
+import ctypes
+import glfw
+import numpy as np
+import OpenGL.GL as gl
+import OpenGL.GLU as glu
 from PIL import Image
 
 mode = 0 # [0] User Mode [1] Turn Table Mode
@@ -23,9 +24,9 @@ gVertexArraySeparate = np.zeros((3, 3))
 
 def key_callback(window, key, scancode, action, mods):
     global mode, timeModeSet, namedCnt, gCamAng, gCamHeight, gCenterHeight, distanceFromOrigin
-    if action==glfw.PRESS or action==glfw.REPEAT:
+    if action == glfw.PRESS or action == glfw.REPEAT:
 
-        if key==glfw.KEY_LEFT: # CCW
+        if key == glfw.KEY_LEFT: # CCW
             gCamAng += np.radians(-10%360)
         elif key==glfw.KEY_RIGHT: # CW
             gCamAng += np.radians(10%360)
@@ -74,22 +75,34 @@ def framebuffer_size_callback(window, width, height):
     gl.glViewport(0, 0, width, height)
 
 def drop_callback(window, paths):
+    # paths = ['/home/kcy/python/Obj_AudtoCapture_And_Viewer/Chair/Chair.obj']
     global dropped, gVertexArraySeparate
+    dropped = True
+
+    if(paths[0].split('.')[-1].lower() != "obj"):
+        print("Invalid File\nPlease provide an .obj file")
+        return
+
+    gVertexArraySeparate = parsing_obj(paths[0])
+
+def parsing_obj(path):
     vertices = None
     normals = None
     faces = None
     numberOfFacesWith3Vertices = 0
     numberOfFacesWith4Vertices = 0
     numberOfFacesWithMoreThan4Vertices = 0
-    dropped = True
-    fileName = paths[0].split('\\')[-1]
-
-    if(paths[0].split('.')[1].lower() != "obj"):
-        print("Invalid File\nPlease provide an .obj file")
-        return
+    filePath = path
+    fileFullName = path.split('/')[-1]
+    fileName = fileFullName.split('.')[0]
+    fileExtension = fileFullName.split('.')[-1]
+    print("filePath: ", filePath)
+    print("fileFullName: ", fileFullName)
+    print("fileName: ", fileName)
+    print("fileExtension: ", fileExtension)
 
     # parsing
-    with open(paths[0]) as f:
+    with open(filePath) as f:
         lines = f.readlines()
         vStrings = [x.strip('v') for x in lines if x.startswith('v ')]
         vertices = convertVertices(vStrings)
@@ -114,14 +127,15 @@ def drop_callback(window, paths):
         else:
             numberOfFacesWithMoreThan4Vertices +=1
     
-    print("File name:",fileName,"\nTotal number of faces:", len(faces),
+    print("\nTotal number of faces:", len(faces),
         "\nNumber of faces with 3 vertices:",numberOfFacesWith3Vertices, 
         "\nNumber of faces with 4 vertices:",numberOfFacesWith4Vertices,
         "\nNumber of faces with more than 4 vertices:",numberOfFacesWithMoreThan4Vertices)
     
     if(numberOfFacesWith4Vertices > 0 or numberOfFacesWithMoreThan4Vertices > 0):
         faces = triangulate(faces)
-    gVertexArraySeparate = createVertexArraySeparate(faces, normals, vertices)
+
+    return createVertexArraySeparate(faces, normals, vertices)
 
 def fillNormalsArray(vertices, numberOfVertices):
     normals = np.zeros((numberOfVertices, 3))
@@ -211,6 +225,7 @@ def render(width, height):
     if mode == 0: # User Mode
         glu.gluLookAt(5*np.sin(gCamAng),gCamHeight,5*np.cos(gCamAng), 0,gCenterHeight,0, 0,1,0)
         saveImgCnt = 0
+
     elif mode == 1: # Turn Table Mode
         hz = 0.2 # TODO: Set rotation Hz
         timeDelta = timeModeSet - time.time()
@@ -323,6 +338,60 @@ def saveImage(name, width, height):
         mode = 0
 
 if __name__ == "__main__":
+
+    # KCY
+    temp = sys.argv
+    # path_test = "/home/kcy/python/Obj_AutoCapture_And_Viewer/Chair/Chair.obj"
+    temp.append("/home/kcy/python/Obj_AutoCapture_And_Viewer/Chair/Chair.obj")
+
+    if (len(temp) > 1):
+        if(temp[1].split('.')[1].lower() == "obj"):
+            gVertexArraySeparate = parsing_obj(temp[1])
+            dropped = True
+        else:
+            print("Invalid File\nPlease provide an .obj file")
+            exit()
+    
+    # #################################################################################
+    # example 2)
+    ##
+
+    # WEE
+    # obj_path = None
+    # if (len(sys.argv) > 1):
+    #     if(sys.argv[1].split('.')[1].lower() == "obj"):
+    #         obj_path = sys.argv[1]
+    #     else:
+    #         print("Invalid File\nPlease provide an .obj file")
+    #         exit()
+    # else:
+    #     obj_path = "/home/kcy/python/Obj_AutoCapture_And_Viewer/Chair/Chair.obj"
+
+    # if obj_path is not None:
+    #     gVertexArraySeparate = parsing_obj(obj_path)
+    #     dropped = True
+
+    # #################################################################################
+    # example 2)
+    ##
+    # path_test = "/home/kcy/python/Obj_AutoCapture_And_Viewer/Chair/Chair.obj"
+    # gVertexArraySeparate = parsing_obj(path_test)
+    # dropped = True
+
+    # if (len(sys.argv) > 1):
+    #     # if (sys.argv[1] == "folder"):
+    #         # paths = 파싱(sys.argv[2])
+    #         # for path in paths:
+    #         #     gVertexArraySeparate = parsing_obj(path)
+    #     if(sys.argv[1].split('.')[1].lower() == "obj"):
+    #         gVertexArraySeparate = parsing_obj(sys.argv[1])
+    #         dropped = True
+    #     else:
+    #         print("Invalid File\nPlease provide an .obj file")
+    #         exit()
+
+    # #################################################################################
+
     width = 720 # TODO: Image/window size
     height = 720 # TODO: Image/window size
     if not glfw.init():

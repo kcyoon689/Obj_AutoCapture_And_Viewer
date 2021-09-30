@@ -11,7 +11,8 @@ mode = 0 # [0] User Mode [1] Turn Table Mode
 timeModeSet = time.time()
 curTime = time.time()
 prevTime = time.time()
-count = 0
+namedCnt = 0
+saveImgCnt = 0
 
 gCamAng = 0.
 gCamHeight = 3.
@@ -21,7 +22,7 @@ dropped = False
 gVertexArraySeparate = np.zeros((3, 3))
 
 def key_callback(window, key, scancode, action, mods):
-    global mode, timeModeSet, count, gCamAng, gCamHeight, gCenterHeight, distanceFromOrigin
+    global mode, timeModeSet, namedCnt, gCamAng, gCamHeight, gCenterHeight, distanceFromOrigin
     if action==glfw.PRESS or action==glfw.REPEAT:
 
         if key==glfw.KEY_LEFT: # CCW
@@ -40,10 +41,10 @@ def key_callback(window, key, scancode, action, mods):
         elif key==glfw.KEY_2: # wire frame
             gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
 
-        elif key==glfw.KEY_EQUAL: # Zoom In
+        elif key==glfw.KEY_D: # Zoom In
             if distanceFromOrigin > 0:
                 distanceFromOrigin -= 1
-        elif key==glfw.KEY_MINUS: # Zoom Out
+        elif key==glfw.KEY_A: # Zoom Out
             if distanceFromOrigin < 180:
                 distanceFromOrigin +=1
 
@@ -66,7 +67,7 @@ def key_callback(window, key, scancode, action, mods):
         elif key==glfw.KEY_X: # TODO: Turn Table Mode
             mode = 1
             timeModeSet = time.time()
-            count = 0
+            namedCnt = 0
             print('Set Turn Table Mode')
 
 def framebuffer_size_callback(window, width, height):
@@ -121,11 +122,6 @@ def drop_callback(window, paths):
     if(numberOfFacesWith4Vertices > 0 or numberOfFacesWithMoreThan4Vertices > 0):
         faces = triangulate(faces)
     gVertexArraySeparate = createVertexArraySeparate(faces, normals, vertices)
-    ##########EMPTYING USELESS VARIABLES FOR MEMORY MANAGEMENT##########
-    faces = []
-    normals = []
-    vertices = []
-    ####################################################################
 
 def fillNormalsArray(vertices, numberOfVertices):
     normals = np.zeros((numberOfVertices, 3))
@@ -200,7 +196,7 @@ def createVertexArraySeparate(faces, normals, vertices):
     return varr
 
 def render(width, height):
-    global mode, timeModeSet, curTime, prevTime, count, gCamAng, gCamHeight, gCenterHeight, distanceFromOrigin, dropped, gVertexArraySeparate
+    global mode, timeModeSet, curTime, prevTime, namedCnt, saveImgCnt, gCamAng, gCamHeight, gCenterHeight, distanceFromOrigin, dropped, gVertexArraySeparate
     gl.glClear(gl.GL_COLOR_BUFFER_BIT|gl.GL_DEPTH_BUFFER_BIT)
     gl.glClearColor(1,1,1,0) # (r,g,b,a)
 
@@ -214,8 +210,9 @@ def render(width, height):
 
     if mode == 0: # User Mode
         glu.gluLookAt(5*np.sin(gCamAng),gCamHeight,5*np.cos(gCamAng), 0,gCenterHeight,0, 0,1,0)
+        saveImgCnt = 0
     elif mode == 1: # Turn Table Mode
-        hz = 0.1 # TODO: Set rotation Hz
+        hz = 0.2 # TODO: Set rotation Hz
         timeDelta = timeModeSet - time.time()
         gCamAngDelta = timeDelta * hz * np.radians(360)
         gCamAngOutput = gCamAng + gCamAngDelta
@@ -238,12 +235,12 @@ def render(width, height):
 
     if mode == 1: # Turn Table Mode
         curTime = time.time()
-        if curTime - prevTime > 1.0: # TODO: Set time interval for capture screen
+        if curTime - prevTime > 0.1: # TODO: Set time interval for capture screen
             now = datetime.datetime.now()
-            strNow = str(datetime.date.fromtimestamp(timeModeSet)) + '-' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
-            saveImage(strNow + '_' + str(count), width, height)
+            strNow = str(datetime.date.fromtimestamp(timeModeSet)) + '_' + str(now.hour) + '-' + str(now.minute) + '-' + str(now.second)
+            saveImage(strNow + '_' + str(namedCnt), width, height)
             prevTime = curTime
-            count += 1
+            namedCnt += 1
     
 def drawFrame():
     gl.glBegin(gl.GL_LINES)
@@ -313,10 +310,17 @@ def drawObject(vertexArray):
     gl.glDrawArrays(gl.GL_TRIANGLES, 0, int(vertexArray.size/6))
 
 def saveImage(name, width, height):
+    global saveImgCnt, mode
+
     pixels = gl.glReadPixels(0, 0, width, height, gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
     pil_image = Image.frombytes('RGB', (width, height), pixels).transpose(Image.FLIP_TOP_BOTTOM)
     pil_image.save('image/' + name + '.png') # TODO: Set save location (recommands absolute location)
     print('image saved: ' + 'image/' + name + '.png')
+
+    saveImgCnt += 1
+
+    if saveImgCnt == 46:
+        mode = 0
 
 if __name__ == "__main__":
     width = 720 # TODO: Image/window size
